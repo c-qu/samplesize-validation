@@ -332,11 +332,11 @@ for (se_true in c(0.05,0.1,0.15)){
   for (p in c(0.05, 0.1,0.3)){
     for (c in c(0.64,0.72,0.8,0.85,0.9)){
       
-      #The required No of events from equation (8) 
+      #No of events required to achieve target SE using equation (6) 
       A <- 2*p*(1-p)*qnorm(c)^2
       events_req_app <- ceiling(1/se_true^2 * (1/A+2)*p)
       
-      #The required No of events from equation (12) 
+      #No of events required to achieve target SE using equation (13) 
       sigmain           <- sqrt(2)*qnorm(c)
       mu                <- 0.5*(2*p-1)*(sigmain^2)+log(p/(1-p))
       sigma             <- sqrt((sigmain^2)*(1+p*(1-p)*(sigmain^2)))
@@ -380,7 +380,7 @@ colnames(req_event_cs) <- c("p","c","se_true", "events_req", "events_req_app","e
 
 
 
-##########################################################################################################
+#################################################################################################################
 # approx. No of events vs true No of events required to achieve the SE of calibration in the large= 0.05,0.1,0.15 
 
 cs_in_l<- function(nevents,p,c){
@@ -407,19 +407,31 @@ for (se_true in c(0.05, 0.1, 0.15)){
     for (c in c(0.85,0.9)){
       
       
+      sigmain<- sqrt(2)*qnorm(c)
+      mu     <- 0.5*(2*p-1)*(sigmain^2)+log(p/(1-p))
+      sigma  <- sqrt((sigmain^2)*(1+p*(1-p)*(sigmain^2)))
       
-      sigmain <- sqrt(2)*qnorm(c)
-      
-      mu    <- 0.5*(2*p-1)*(sigmain^2)+log(p/(1-p))
-      sigma <- sqrt((sigmain^2)*(1+p*(1-p)*(sigmain^2)))
-      
-      
+      #No of events required to achieve target SE using equation (8)
       pin    <-  exp(mu)/(1+exp(mu))
       term1m <-  pin*(1-pin)
       term2m <-  (1/2)*(1-6*pin+6*pin^2)*pin*(1-pin)*sigma^2
-      
       events_req_app <-  ceiling(1/ (se_true^2*(term1m+term2m))*p)
       
+      #No of events required to achieve target SE using equation (13)
+      sigmain           <- sqrt(2)*qnorm(c)
+      mu                <- 0.5*(2*p-1)*(sigmain^2)+log(p/(1-p))
+      sigma             <- sqrt((sigmain^2)*(1+p*(1-p)*(sigmain^2)))
+      eta_sim           <-  rnorm(300000,mu,sigma)
+      prob_sim          <-  invlogit(eta_sim)
+      omega_sim         <-  prob_sim*(1-prob_sim)
+      omega_eta_sim     <-  omega_sim*eta_sim
+      omega_eta_sq_sim  <-  omega_sim*(eta_sim^2)
+      mean_omega        <- mean(omega_sim)
+      mean_omega_eta    <- mean(omega_eta_sim)
+      mean_omega_eta_sq <- mean(omega_eta_sq_sim) 
+      y     <- rbinom(300000,1,prob_sim)
+      p_est <- mean(y)
+      events_req_app_mc  <- rbind(req_event_csl_mc,1/(se_true^2*mean_omega)*p_est)
       
       n0 <- events_req_app # Set start value to supplied lower bound
       i  <- 1 
@@ -429,7 +441,6 @@ for (se_true in c(0.05, 0.1, 0.15)){
       if (c==0.8)    {n1 <- ceiling(events_req_app*0.9) ; n2<-ceiling(events_req_app*1.1)}
       if (c==0.85)   {n1 <- ceiling(events_req_app*1) ;  n2<-ceiling(events_req_app*1.35)}
       if (c==0.9)    {n1 <- ceiling(events_req_app*1) ;  n2<-ceiling(events_req_app*1.5)}
-      
       
       
       f <- function(x) abs(se_true -sd(replicate(15000,cs_in_l(x,p,c))))
@@ -462,38 +473,113 @@ for (se_true in c(0.05, 0.1, 0.15)){
         se_emp
       }
       
-      a_sum <- c(p,c,se_true, events_req, events_req_app, events_req_app/events_req, se_emp)
+      a_sum <- c(p,c,se_true, events_req, events_req_app,events_req_app_mc,events_req_app/events_req,events_req_app_mc/events_req ,se_emp)
       
-      req_event_csl<-rbind(req_event_csl, a_sum)
+      req_event_csl<-data.frame(rbind(req_event_csl, a_sum))
       print(c)
     }}}
-res3 <- req_event_csl
-res3<-data.frame(res3)
-colnames(res_cs3) <- c("p","c","se_true", "events_req", "events_req_app", "events_req_app/events_req", "se_emp_cs", "se_app")
-View(res_cs3)
 
-req_event_csl_mc  <-NULL
-for (se_true in c(0.05, 0.1, 0.15)){
+colnames(req_event_csl) <- c("p","c","se_true", "events_req", "events_req_app", "events_req_app_mc", "events_req_app/events_req",  "events_req_app_mc/events_req", "se_emp_cs", "se_app")
+
+#########################################################################################################################################################################################
+########################################################Power and type 1 error###########################################################################################################
+#########################################################################################################################################################################################
+
+power_c <- function(p0=for_c0[1],p1=for_c1[1],c0=for_c0[2],c1=for_c1[2],mu=for_c1[3], sigma=for_c1[4],alpha=0.05,beta=0.1) {
+  
+  #alpha = type I error, significance level
+  #beta  = type-II error, 1-beta=power
+  #H0: c=c0
+  #H1: c=c1
+  
+  d=c1-c0
+  
+  sd_c0=sqrt((c0-2*T.Owen(-qnorm(c0),1/sqrt(3))-c0^2) /(p0-p0^2))
+  sd_c1=sqrt((c1-2*T.Owen(-qnorm(c1),1/sqrt(3))-c1^2) /(p1-p1^2))
+  
+  #Formula for ss calculation
+  
+  n <- ceiling(((qnorm(1-alpha)*sd_c0 + qnorm(1-beta)*sd_c1))^2/d^2) ;n
+  
+  #Generate data under the alternative hypothesis
+  
+  eta    <- rnorm(n,mu,sigma)
+  y      <- rbinom(n,1,invlogit(eta))
+  
+  c      <- roc(y,eta,quiet=TRUE,ci=TRUE)
+  c_est  <- as.vector(c$auc) 
+  se_c   <- (c$ci[3]-c_est)/qnorm(0.975)
+  c_est+qnorm(1-alpha) *se_c
+  cov_c  <- ifelse( (c_est-qnorm(1-alpha) *se_c) >= c0 , 1, 0)
+  n1<-ceiling(n*p0)
+  
+  out<-c(mean(y),c0,c1,c_est,n1,cov_c)
+  out
+}
+
+type1_error_c<- function(p0=for_c0[1],p1=for_c1[1],c0=for_c0[2],c1=for_c1[2],mu=for_c0[3], sigma=for_c0[4],alpha=0.05,beta=0.1) {
+  
+  #alpha = type I error, significance level
+  #beta  = type-II error, 1-beta=power
+  #H0: c=c0
+  #H1: c=c1
+  
+  d=c1-c0
+  
+  sd_c0=sqrt((c0-2*T.Owen(-qnorm(c0),1/sqrt(3))-c0^2) /(p0-p0^2))
+  sd_c1=sqrt((c1-2*T.Owen(-qnorm(c1),1/sqrt(3))-c1^2) /(p1-p1^2))
+  
+  n <- ceiling(((qnorm(1-alpha)*sd_c0 + qnorm(1-beta)*sd_c1))^2/d^2) ;n
+  
+  n1<-ceiling(n*p0)
+  
+  #Generate data under the NULL hypothesis
+  
+  eta  <- rnorm(n,mu,sigma)
+  y    <- rbinom(n,1,invlogit(eta))
+  
+  c     <- roc(y,eta,quiet=TRUE,ci=TRUE)
+  c_est <- as.vector(c$auc)     
+  se_c  <- (c$ci[3]-c_est)/qnorm(0.975)
+  
+  cov_c <- ifelse( (c_est+qnorm(1-alpha) *se_c) <= c0 , 1, 0)
+  out   <- c(mean(y),c0,c1,c_est,n1,cov_c)
+  out
+  
+}
+
+
+#################
+
+Nsim <- 100000
+res<-NULL
+
+for (dc in c(0.03, 0.05)){
   
   for (p in c(0.05,0.1,0.3)){
     
-    for (c in c(0.64,0.72,0.80,0.85,0.9)){
+    for (c in c(0.64, 0.72, 0.8, 0.85)){
       
-      sigmain           <- sqrt(2)*qnorm(c)
-      mu                <- 0.5*(2*p-1)*(sigmain^2)+log(p/(1-p))
-      sigma             <- sqrt((sigmain^2)*(1+p*(1-p)*(sigmain^2)))
-      eta_sim           <-  rnorm(300000,mu,sigma)
-      prob_sim          <-  invlogit(eta_sim)
-      omega_sim         <-  prob_sim*(1-prob_sim)
-      omega_eta_sim     <-  omega_sim*eta_sim
-      omega_eta_sq_sim  <-  omega_sim*(eta_sim^2)
-      mean_omega        <- mean(omega_sim)
-      mean_omega_eta    <- mean(omega_eta_sim)
-      mean_omega_eta_sq <- mean(omega_eta_sq_sim) 
-      y     <- rbinom(300000,1,prob_sim)
-      p_est <- mean(y)
+      print(c(p,c))
       
-      req_event_csl_mc  <- rbind(req_event_csl_mc,1/(se_true^2*mean_omega)*p_est)
-    }
-  }
-}
+      for_c0<- meas_true(2000000,p,c,fc=1)
+      for_c1<- meas_true(2000000,p,c+dc,fc=1)    
+      
+      a<-replicate(Nsim, type1_error_c(p0=for_c0[1],p1=for_c1[1],c0=for_c0[2],c1=for_c1[2],mu=for_c0[3], sigma=for_c0[4],alpha=0.05,beta=0.1) ); a<-t(a)
+      type1_error_n<-round(colMeans(a),3);type1_error_n
+      
+      b<-replicate(Nsim, power_c(p0=for_c0[1],p1=for_c1[1],c0=for_c0[2],c1=for_c1[2],mu=for_c1[3], sigma=for_c1[4],alpha=0.05,beta=0.1) ); b<-t(b)
+      power_n<-round(colMeans(b),3);power_n
+      
+      a_sum <- c(dc,p,c,c+dc,type1_error_n[5:6],power_n[6])
+      
+      res<-rbind(res, a_sum)
+    }}}
+res_power <- res
+
+res_power<-data.frame(res_power)
+
+
+colnames(res_power) <- c("Difference","p","c0","c1","nevents", "alpha","power")
+View(res_power)
+
