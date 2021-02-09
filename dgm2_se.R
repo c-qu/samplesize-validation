@@ -39,15 +39,6 @@ meas_true_unequal<- function(nevents,p,c,f0=0.67,f1=1.33,cmu=-0.1) {
   eta    <- c(eta0,eta1)
   prob <- invlogit(eta) 
   
-  #Retrospective (gets C right)
-  
-  #if (prospective==FALSE) y_val  <- c(rep(0,n0), rep(1,n1))
-  #n <-round(n_events/p)
-  #pa_val           <- invlogit(eta)  
-  
-  
-  #Prospective (gets calibration slope right)
-  
   y <- as.vector(rbinom(n,1,prob=prob))  
   n1<-sum(y)
   
@@ -61,33 +52,11 @@ meas_true_unequal<- function(nevents,p,c,f0=0.67,f1=1.33,cmu=-0.1) {
 }
 
 
-nevents=50000;p=0.05
-meas_true_unequal(nevents,p,c=0.609,f0=0.67,f1=1.33,cmu=0.06)
-meas_true_unequal(nevents,p,c=0.677,f0=0.67,f1=1.33,cmu=0.1)
-meas_true_unequal(nevents,p,c=0.752,f0=0.67,f1=1.33,cmu=0.253)
-meas_true_unequal(nevents,p,c=0.803,f0=0.67,f1=1.33,cmu=0.4)
-meas_true_unequal(nevents,p,c=0.865,f0=0.67,f1=1.33,cmu=0.6)
-
-
-nevents=50000;p=0.1
-meas_true_unequal(nevents,p,c=0.612,f0=0.67,f1=1.33,cmu=0.06)
-meas_true_unequal(nevents,p,c=0.682,f0=0.67,f1=1.33,cmu=0.1)
-meas_true_unequal(nevents,p,c=0.76,f0=0.67,f1=1.33,cmu=0.2)
-meas_true_unequal(nevents,p,c=0.815,f0=0.67,f1=1.33,cmu=0.3)
-meas_true_unequal(nevents,p,c=0.875,f0=0.67,f1=1.33,cmu=0.5)
-
-nevents=50000;p=0.3
-meas_true_unequal(nevents,p,c=0.624,f0=0.67,f1=1.33,cmu=0.02)
-meas_true_unequal(nevents,p,c=0.702,f0=0.67,f1=1.33,cmu=0.05)
-meas_true_unequal(nevents,p,c=0.785,f0=0.67,f1=1.33,cmu=0.16)
-meas_true_unequal(nevents,p,c=0.837,f0=0.67,f1=1.33,cmu=0.30)
-meas_true_unequal(nevents,p,c=0.887,f0=0.67,f1=1.33,cmu=0.5)
-
 meas_unequal<- function(nevents,p,c,f0=0.67,f1=1.33,cmu) {
   
   n1 <- nevents
   n0 <- round(round(nevents/p)-nevents)
-  n<-n0+n1
+  n  <-n0+n1
   
   sigma <- sqrt(2)*qnorm(c)
   sigma1 <- 1.33*sigma
@@ -103,12 +72,6 @@ meas_unequal<- function(nevents,p,c,f0=0.67,f1=1.33,cmu) {
   eta    <- c(eta0,eta1)
   prob <- invlogit(eta) 
   
-  #Retrospective (gets C right)
-  
-  #if (prospective==FALSE) y_val  <- c(rep(0,n0), rep(1,n1))
-  #n <-round(n_events/p)
-  #pa_val           <- invlogit(eta)  
-  
   
   #Prospective (gets calibration slope right)
   
@@ -118,10 +81,6 @@ meas_unequal<- function(nevents,p,c,f0=0.67,f1=1.33,cmu) {
   cstat <- roc(y,eta,quiet=TRUE,ci=FALSE)
   c     <- as.vector(cstat$auc)
   cs    <- speedglm(y ~ eta, family=binomial(link='logit')) 
-  #cs    <- withWarnings(speedglm(Y_val ~ eta, family=binomial(link='logit')) )
-  # if (length(calibration$error)==0) {
-  #  calibration<-calibration$value
-  # out<-summary(calibration)
   cs <- as.numeric(coef(cs))[2]
   out<-c(p,c,cs)
   out
@@ -195,12 +154,4 @@ res_se[,9]<-round(res_se[,9],2)
 colnames(res_se) <- c("p","c","n_events","se_emp_c","se_app_c","se_app_c/se_emp_c","se_emp_cs","se_app_cs","se_app_cs/se_emp_cs","sigma0","sigma1")
 res_se_unequal<-res_se
 View(res_se_unequal)
-
-cd("C:\\Users\\Menelaos\\Dropbox\\Current Papers\\Validation\\Tables")
-
-wb <- createWorkbook()
-addWorksheet(wb, "se")
-writeData(wb, 1, res_se)
-addFilter(wb, 1, row = 1, cols = 1:ncol(res_se))
-saveWorkbook(wb, file = "dgm3_se.xlsx", overwrite = TRUE)
 
