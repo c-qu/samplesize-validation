@@ -151,16 +151,6 @@ colnames(res_se) <- c("p","c","n_events","se_emp_c","se_app_c","Bias_se_app",
 
 View(res_se)
 
-cd("C:\\Users\\Menelaos\\Dropbox\\Current Papers\\Validation\\Tables\\Tables_se")
-
-wb <- createWorkbook()
-addWorksheet(wb, "se")
-writeData(wb, 1, res_se)
-addFilter(wb, 1, row = 1, cols = 1:ncol(res_se))
-saveWorkbook(wb, file = "dgm3_se_revise_10_11.xlsx", overwrite = TRUE)
-
-
-
 
 
 #################################################################################################
