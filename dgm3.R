@@ -68,9 +68,8 @@ Nsim <-10000
 res<-NULL
 
 for (p in c(0.05,0.1,0.3)){
-  
   for (c in c(0.64, 0.72, 0.8, 0.85, 0.9)){
-    
+
     fc=1
     if (c==0.8)            fc=1.01
     if (p<0.3  & c==0.85)  fc=1.03
@@ -99,13 +98,13 @@ var_emp_cl=var_emp[3]   #empirical SE of CSL
 #approx. SE of C-statistics using equation (6)
 var_app_c   <- ((c_true-2*T.Owen(-qnorm(c_true),1/sqrt(3)))-c_true^2)/(n*p_true-n*p_true^2) 
 
-#approx. SE of calibration slope using equation (6)
+#approx. SE of calibration slope using equation (7)
 A           <- 2*p_true*(1-p_true)*qnorm(c_true)^2
-var_app_cs1 <-1/(A*n)+2/(n-2)   
+var_app_cs  <-1/(A*n)+2/(n-2)   
 
-sigmain     <- sqrt(2)*qnorm(c)*fc
-mu          <-0.5*(2*p-1)*(sigmain^2)+log(p/(1-p))
-sigma       <-sqrt((sigmain^2)*(1+p*(1-p)*(sigmain^2)))
+sigmain     <- sqrt(2)*qnorm(c_true)
+mu          <-0.5*(2*p_true-1)*(sigmain^2)+log(p_true/(1-p_true))
+sigma       <-sqrt((sigmain^2)*(1+p_true*(1-p_true)*(sigmain^2)))
 n_sim<-3000000
 eta_sim           <-  rnorm(n_sim,mu,sigma)
 prob_sim          <-  invlogit(eta_sim)
@@ -137,16 +136,31 @@ a_sum <- c(round(c(p_true,c_true),3),nevents,
            sqrt(var_emp_cs), sqrt(var_app_cs),(sqrt(var_app_cs)/sqrt(var_emp_cs)-1)*100,
            sqrt(var_app_cs2),(sqrt(var_app_cs2)/sqrt(var_emp_cs)-1)*100,
            sqrt(var_emp_cl), sqrt(var_app_cl),(sqrt(var_app_cl)/sqrt(var_emp_cl)-1)*100,
-           sqrt(var_app_cl2),(sqrt(var_app_cl2)/sqrt(var_emp_cl)-1),
+           sqrt(var_app_cl2),(sqrt(var_app_cl2)/sqrt(var_emp_cl)-1)*100,
            true[5],true[6])
 res<-rbind(res, a_sum)
-  }}}
+    }}}
 
-colnames(res_se) <- c("p","c","n_events","se_emp_c","se_app_c","se_app_c/se_emp_c",
-                      "se_emp_cs","se_app_cs","se_app_cs/se_emp_cs",
-                      "se_app_cs2","se_app_cs2/se_emp_cs",
-                      "se_emp_cl","se_app_cl","se_app_cl/se_emp_cl",
-                      "se_app_cl2","se_app_cl2/se_emp_cl","sigma0","sigma1")
+res_se<-res
+
+colnames(res_se) <- c("p","c","n_events","se_emp_c","se_app_c","Bias_se_app",
+                      "se_emp_cs","se_app_cs","Bias_se_app_cs",
+                      "se_app_cs2","Bias_se_app_cs2",
+                      "se_emp_cl","se_app_cl","Bias_se_app_cl",
+                      "se_app_cl2","Bias_se_app_cl2","sigma0","sigma1")
+
+View(res_se)
+
+cd("C:\\Users\\Menelaos\\Dropbox\\Current Papers\\Validation\\Tables\\Tables_se")
+
+wb <- createWorkbook()
+addWorksheet(wb, "se")
+writeData(wb, 1, res_se)
+addFilter(wb, 1, row = 1, cols = 1:ncol(res_se))
+saveWorkbook(wb, file = "dgm3_se_revise_10_11.xlsx", overwrite = TRUE)
+
+
+
 
 
 #################################################################################################
@@ -155,8 +169,15 @@ colnames(res_se) <- c("p","c","n_events","se_emp_c","se_app_c","se_app_c/se_emp_
 
 # approx. No of events vs true No of events required to achieve the SE of C-statistic = 0.0125,0.025,0.05 
 cstat<- function(nevents,p,c) {
+  fc=1
+  if (c==0.8)            fc=1.01
+  if (p<0.3  & c==0.85)  fc=1.03
+  if (p<0.3  & c==0.9)   fc=1.05
+  if (p==0.3 & c==0.85)  fc=1.02
+  if (p==0.3 & c==0.9)   fc=1.04
+  
   n       <- nevents/p
-  sigmain <- sqrt(2)*qnorm(c)
+  sigmain <- sqrt(2)*qnorm(c)*fc
   
   mu<-0.5*(2*p-1)*(sigmain^2)+log(p/(1-p))
   sigma<-sqrt((sigmain^2)*(1+p*(1-p)*(sigmain^2)))
@@ -267,8 +288,15 @@ colnames(res) <- c("p","c","se_true", "events_req", "events_req_app", "events_re
 #approx. No of events vs true No of events required to achieve the SE of Calibration slope = 0.05,0.10,0.15 
 
 cal<- function(nevents,p,c) {
+  fc=1
+  if (c==0.8)            fc=1.01
+  if (p<0.3  & c==0.85)  fc=1.03
+  if (p<0.3  & c==0.9)   fc=1.05
+  if (p==0.3 & c==0.85)  fc=1.02
+  if (p==0.3 & c==0.9)   fc=1.04
+  
   n       <- nevents/p
-  sigmain <- sqrt(2)*qnorm(c)
+  sigmain <- sqrt(2)*qnorm(c)*fc
   
   mu      <- 0.5*(2*p-1)*(sigmain^2)+log(p/(1-p))
   sigma   <- sqrt((sigmain^2)*(1+p*(1-p)*(sigmain^2)))
