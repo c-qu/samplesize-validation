@@ -13,7 +13,7 @@ invlogit    <- function(x){exp(x)/(1+exp(x))}
 ############compare empirical SE vs Approx. SE of performance measures##########################
 ################################################################################################
 
-meas_true<- function(nevents,p,c,fc=1,fp=1) {
+meas_true<- function(nevents,p,c,fc) {
   n       <- nevents/p
   sigmain <- sqrt(2)*qnorm(c)*fc
   
@@ -37,7 +37,7 @@ meas_true<- function(nevents,p,c,fc=1,fp=1) {
 }
 
 
-meas<- function(nevents,p,c,fc=1,fp=1) {
+meas<- function(nevents,p,c,fc) {
   
   n<-nevents/p
   
@@ -158,20 +158,8 @@ View(res_se)
 #################################################################################################
 
 # approx. No of events vs true No of events required to achieve the SE of C-statistic = 0.0125,0.025,0.05 
-cstat<- function(nevents,p,c) {
-  fc=1
-  if (c==0.8)            fc=1.01
-  if (p<0.3  & c==0.85)  fc=1.03
-  if (p<0.3  & c==0.9)   fc=1.05
-  if (p==0.3 & c==0.85)  fc=1.02
-  if (p==0.3 & c==0.9)   fc=1.04
-  
-  n       <- nevents/p
-  sigmain <- sqrt(2)*qnorm(c)*fc
-  
-  mu<-0.5*(2*p-1)*(sigmain^2)+log(p/(1-p))
-  sigma<-sqrt((sigmain^2)*(1+p*(1-p)*(sigmain^2)))
-  
+cstat<- function(nevent,p,mu,sigma) {
+  n     <- nevent/p
   eta   <- rnorm(n,mu,sigma) 
   p_est <- invlogit(eta) 
   y     <- rbinom(n,1,p_est)
@@ -181,9 +169,7 @@ cstat<- function(nevents,p,c) {
 }
 
 
-nstart_sim<-10000
-
-find_events_req_c <- function(se_true,p,c,nstart1,nstart2,nstart_sim, tol=0.0001){
+find_events_req_c <- function(se_true,p,mu,sigma,nstart1,nstart2,nstart_sim, tol=0.00001){
   
   #initial values
   n1<-nstart1
@@ -192,8 +178,8 @@ find_events_req_c <- function(se_true,p,c,nstart1,nstart2,nstart_sim, tol=0.0001
   
   #set.seed(0)
   
-  se1<-sd(replicate(nsim, cstat(n1,p,c)))
-  se2<-sd(replicate(nsim, cstat(n2,p,c)))
+  se1<-sd(replicate(nsim, cstat(n1,p,mu,sigma)))
+  se2<-sd(replicate(nsim, cstat(n2,p,mu,sigma)))
   se1;se2
   
   d1<-(se1-se_true)
@@ -217,8 +203,8 @@ find_events_req_c <- function(se_true,p,c,nstart1,nstart2,nstart_sim, tol=0.0001
     
     nsimnew<-nsim
     
-    se1<-sd(replicate(nsimnew, cstat(n1,p,c) ))
-    se2<-sd(replicate(nsimnew, cstat(n2,p,c) ))
+    se1<-sd(replicate(nsimnew, cstat(n1,p,mu,sigma) ))
+    se2<-sd(replicate(nsimnew, cstat(n2,p,mu,sigma) ))
     se1;se2
     d1=se1-se_true
     d2<-se2-se_true
@@ -235,16 +221,24 @@ req_event_c <-NULL
 
 for (se_true in c(0.0125,0.025,0.05)){
     for (p in c(0.05,0.1,0.3)){
-        for (c in c(0.64,0.72,0.8,0.85,0.9)){
-
-       events_req_app <- ceiling((c-2*T.Owen(-qnorm(c),1/sqrt(3))-c^2)/((p-p^2)*se_true^2)*p) 
+        for (c in c(0.8,0.85,0.9)){
+          fc=1
+          if (c==0.8)            fc=1.01
+          if (p<0.3  & c==0.85)  fc=1.03
+          if (p<0.3  & c==0.9)   fc=1.05
+          if (p==0.3 & c==0.85)  fc=1.02
+          if (p==0.3 & c==0.9)   fc=1.04
+          
+      true            <- meas_true(1000000,p,c,fc); p_true<- true[1];c_true<-true[2];mu_true<-true[3];sigma_true<-true[4]
+      
+      events_req_app  <- ceiling((c_true-2*T.Owen(-qnorm(c_true),1/sqrt(3))-c_true^2)/((p_true-p_true^2)*se_true^2)*p_true) 
       
       
       if (c==0.64)   {nstart1 <- events_req_app*0.97 ; nstart2<-events_req_app*1.05}  
       if (c==0.72)   {nstart1 <- events_req_app*0.97 ; nstart2<-events_req_app*1.05}
       if (c==0.8)    {nstart1 <- events_req_app*0.97 ; nstart2<-events_req_app*1.05}
       if (c==0.85)   {nstart1 <- events_req_app*0.80 ; nstart2<-events_req_app*1.05}
-      if (c==0.9)    {nstart1 <- events_req_app*0.7 ; nstart2<-events_req_app*1.5}
+      if (c==0.9)    {nstart1 <- events_req_app*0.7 ;  nstart2 <-events_req_app*1.5}
       
       
       nstart1<-ceiling(nstart1)
@@ -252,7 +246,7 @@ for (se_true in c(0.0125,0.025,0.05)){
       
       error  <- NULL
       
-      a <- tryCatch({find_events_req_c(se_true,p,c,nstart1,nstart2,15000,tol=0.0001) 
+      a <- tryCatch({find_events_req_c(se_true,p_true,mu_true,sigma_true,nstart1,nstart2,10000,tol=0.0001) 
       }, error=function(e){cat("error:",conditionMessage(e), "\n")})  
       if(inherits(a,"NULL")){
         error          <- error + 1
@@ -260,10 +254,8 @@ for (se_true in c(0.0125,0.025,0.05)){
       else{
         events_req<-ceiling(a[1])
         se_emp<- a[2]
-        nn     <-   events_req/p
-        se_app <-   sqrt(((c-2*T.Owen(-qnorm(c),1/sqrt(3)))-c^2)/(nn*p-n*p^2)) 
         
-        a_sum <- c(p,c,se_true, events_req, events_req_app, events_req_app/events_req, se_emp, se_app)
+        a_sum <- c(p_true,c_true,se_true, events_req, events_req_app, (events_req_app/events_req-1)*100, se_emp)
         
         req_event_c <-rbind(req_event_c, a_sum)
         print(c)
@@ -272,25 +264,13 @@ for (se_true in c(0.0125,0.025,0.05)){
 
 req_event_c <-data.frame(req_event_c) 
 
-colnames(res) <- c("p","c","se_true", "events_req", "events_req_app", "events_req_app/events_req", "se_emp_c", "se_app_c")
+colnames(req_event_c) <- c("p","c","se_true", "events_req", "events_req_app", "bias", "se_emp_c")
 
 ##########################################################################################################
 #approx. No of events vs true No of events required to achieve the SE of Calibration slope = 0.05,0.10,0.15 
 
-cal<- function(nevents,p,c) {
-  fc=1
-  if (c==0.8)            fc=1.01
-  if (p<0.3  & c==0.85)  fc=1.03
-  if (p<0.3  & c==0.9)   fc=1.05
-  if (p==0.3 & c==0.85)  fc=1.02
-  if (p==0.3 & c==0.9)   fc=1.04
-  
+cal<- function(nevents,p,mu,sigma) {
   n       <- nevents/p
-  sigmain <- sqrt(2)*qnorm(c)*fc
-  
-  mu      <- 0.5*(2*p-1)*(sigmain^2)+log(p/(1-p))
-  sigma   <- sqrt((sigmain^2)*(1+p*(1-p)*(sigmain^2)))
-  
   eta     <- rnorm(n,mu,sigma) 
   p_est   <- invlogit(eta) 
   y       <- rbinom(n,1,p_est)
@@ -300,7 +280,7 @@ cal<- function(nevents,p,c) {
 
 
 
-find_events_req_cs <- function(se_true,p,c,nstart1,nstart2,nstart_sim, tol=0.001){
+find_events_req_cs <- function(se_true,p,mu,sigma,nstart1,nstart2,nstart_sim, tol=0.0001){
   
   #initial values
   n1<-nstart1
@@ -309,8 +289,8 @@ find_events_req_cs <- function(se_true,p,c,nstart1,nstart2,nstart_sim, tol=0.001
   
   #set.seed(0)
   
-  se1<-sd(replicate(nsim, cal(n1,p,c) ))
-  se2<-sd(replicate(nsim, cal(n2,p,c) ))
+  se1<-sd(replicate(nsim, cal(n1,p,mu,sigma) ))
+  se2<-sd(replicate(nsim, cal(n2,p,mu,sigma) ))
   se1;se2
   
   d1<-(se1-se_true)
@@ -332,8 +312,8 @@ find_events_req_cs <- function(se_true,p,c,nstart1,nstart2,nstart_sim, tol=0.001
     if (sign(d1)==sign(d2) & n1<n2)  {n1<-n1-5; n2<-n2+5}
     
     nsimnew<-nsim
-    se1<-sd(replicate(nsimnew, cal(n1,p,c)))
-    se2<-sd(replicate(nsimnew, cal(n2,p,c)))
+    se1<-sd(replicate(nsimnew, cal(n1,p,mu,sigma)))
+    se2<-sd(replicate(nsimnew, cal(n2,p,mu,sigma)))
     se1;se2
     d1=se1-se_true
     d2<-se2-se_true
@@ -347,18 +327,25 @@ find_events_req_cs <- function(se_true,p,c,nstart1,nstart2,nstart_sim, tol=0.001
 
 req_event_cs<-NULL
 for (se_true in c(0.05,0.1,0.15)){
-  for (p in c(0.05, 0.1,0.3)){
-    for (c in c(0.64,0.72,0.8,0.85,0.9)){
+         for (p in c(0.05, 0.1,0.3)){
+             for (c in c(0.64,0.72,0.8,0.85,0.9)){
+      fc=1
+      if (c==0.8)            fc=1.01
+      if (p<0.3  & c==0.85)  fc=1.03
+      if (p<0.3  & c==0.9)   fc=1.05
+      if (p==0.3 & c==0.85)  fc=1.02
+      if (p==0.3 & c==0.9)   fc=1.04
       
+      true            <- meas_true(1000000,p,c,fc); p_true<- true[1];c_true<-true[2];mu_true<-true[3];sigma_true<-true[4]
       #No of events required to achieve target SE using equation (6) 
-      A <- 2*p*(1-p)*qnorm(c)^2
-      events_req_app <- ceiling(1/se_true^2 * (1/A+2)*p)
+      A              <- 2*p_true*(1-p_true)*qnorm(c_true)^2
+      events_req_app <- ceiling(1/se_true^2 * (1/A+2)*p_true)
       
       #No of events required to achieve target SE using equation (13) 
-      sigmain           <- sqrt(2)*qnorm(c)
-      mu                <- 0.5*(2*p-1)*(sigmain^2)+log(p/(1-p))
-      sigma             <- sqrt((sigmain^2)*(1+p*(1-p)*(sigmain^2)))
-      eta_sim           <- rnorm(300000,mu,sigma)
+      sigmain           <- sqrt(2)*qnorm(c_true)
+      mu_est            <- 0.5*(2*p_true-1)*(sigmain^2)+log(p_true/(1-p_true))
+      sigma_est         <- sqrt((sigmain^2)*(1+p_true*(1-p_true)*(sigmain^2)))
+      eta_sim           <- rnorm(300000,mu_true,sigma_true)
       prob_sim          <- invlogit(eta_sim)
       omega_sim         <- prob_sim*(1-prob_sim)
       omega_eta_sim     <- omega_sim*eta_sim
@@ -366,11 +353,9 @@ for (se_true in c(0.05,0.1,0.15)){
       mean_omega        <- mean(omega_sim)
       mean_omega_eta    <- mean(omega_eta_sim)
       mean_omega_eta_sq <- mean(omega_eta_sq_sim) 
-      y                 <- rbinom(300000,1,prob_sim)
-      p_est             <- mean(y)
       numer             <-  mean_omega
       denom             <-  mean_omega*mean_omega_eta_sq  - mean_omega_eta^2
-      events_req_app_mc <- rbind(req_event_cs_mc,(1/se_true^2)*(numer/denom)*p_est)
+      events_req_app_mc <-  (1/se_true^2)*(numer/denom)*p_true
     
       #find the true No of events to achieve target SE  
       if (c==0.64)   {nstart1 <- events_req_app*1.00 ; nstart2<-events_req_app*1.05}  
@@ -382,35 +367,30 @@ for (se_true in c(0.05,0.1,0.15)){
       nstart1<-ceiling(nstart1)
       nstart2<-ceiling(nstart2)
       
-      a          <-find_events_req_cs(se_true,p,c,nstart1,nstart2,15000, tol=0.001)
+      a          <-find_events_req_cs(se_true,p_true,mu_true,sigma_true,nstart1,nstart2,15000, tol=0.0001)
       events_req <- ceiling(a[1])
       se_emp<-a[2]
       
       #result
-      a_sum <- c(p,c,se_true, events_req, events_req_app,events_req_app_mc, events_req_app/events_req, events_req_app_mc/events_req, se_emp)
+      a_sum <- c(p_true,c_true,se_true, events_req, events_req_app, (events_req_app/events_req-1)*100,events_req_app_mc,(events_req_app_mc/events_req-1)*100,se_emp)
       
-      req_event_cs<-rbind(req_even_cs, a_sum)
+      req_event_cs<-rbind(req_event_cs, a_sum)
       print(c)
     }}}
 
 req_event_cs           <-data.frame(req_event_cs)
-colnames(req_event_cs) <- c("p","c","se_true", "events_req", "events_req_app","events_req_app_mc","events_req_app/events_req","events_req_app_mc/events_req","se_emp_cs", "se_app")
+colnames(req_event_cs) <- c("p","c","se_true", "events_req", "events_req_app","bias","events_req_app_mc","bias","se_emp_cs", "se_app")
 
 
 
 #################################################################################################################
 # approx. No of events vs true No of events required to achieve the SE of calibration in the large= 0.05,0.1,0.15 
 
-cs_in_l<- function(nevents,p,c){
-  n       <- nevents/p
-  sigmain <- sqrt(2)*qnorm(c)
-  
-  mu     <- 0.5*(2*p-1)*(sigmain^2)+log(p/(1-p))
-  sigma  <- sqrt((sigmain^2)*(1+p*(1-p)*(sigmain^2)))
-  
+cs_in_l<- function(nevents,p,mu,sigma){
+    n    <- nevents/p
   eta    <- rnorm(n,mu,sigma) 
-  p_est  <- invlogit(eta) 
-  y      <- rbinom(n,1,p_est)
+  pa     <- invlogit(eta) 
+  y      <- rbinom(n,1,pa)
   csl    <- coef(speedglm(y ~ offset(eta), family=binomial(link='logit')))[1]
   csl
 }
@@ -424,10 +404,10 @@ for (se_true in c(0.05, 0.1, 0.15)){
     
     for (c in c(0.85,0.9)){
       
-      
-      sigmain<- sqrt(2)*qnorm(c)
-      mu     <- 0.5*(2*p-1)*(sigmain^2)+log(p/(1-p))
-      sigma  <- sqrt((sigmain^2)*(1+p*(1-p)*(sigmain^2)))
+      true            <- meas_true(1000000,p,c,fc); p_true<- true[1];c_true<-true[2];mu_true<-true[3];sigma_true<-true[4]
+      sigmain<- sqrt(2)*qnorm(c_true)
+      mu     <- 0.5*(2*p_true-1)*(sigmain^2)+log(p_true/(1-p_true))
+      sigma  <- sqrt((sigmain^2)*(1+p_true*(1-p_true)*(sigmain^2)))
       
       #No of events required to achieve target SE using equation (8)
       pin    <-  exp(mu)/(1+exp(mu))
@@ -436,9 +416,6 @@ for (se_true in c(0.05, 0.1, 0.15)){
       events_req_app <-  ceiling(1/ (se_true^2*(term1m+term2m))*p)
       
       #No of events required to achieve target SE using equation (13)
-      sigmain           <- sqrt(2)*qnorm(c)
-      mu                <- 0.5*(2*p-1)*(sigmain^2)+log(p/(1-p))
-      sigma             <- sqrt((sigmain^2)*(1+p*(1-p)*(sigmain^2)))
       eta_sim           <-  rnorm(300000,mu,sigma)
       prob_sim          <-  invlogit(eta_sim)
       omega_sim         <-  prob_sim*(1-prob_sim)
@@ -447,9 +424,7 @@ for (se_true in c(0.05, 0.1, 0.15)){
       mean_omega        <- mean(omega_sim)
       mean_omega_eta    <- mean(omega_eta_sim)
       mean_omega_eta_sq <- mean(omega_eta_sq_sim) 
-      y     <- rbinom(300000,1,prob_sim)
-      p_est <- mean(y)
-      events_req_app_mc  <- rbind(req_event_csl_mc,1/(se_true^2*mean_omega)*p_est)
+      events_req_app_mc  <-1/(se_true^2*mean_omega)*p_true
       
       n0 <- events_req_app # Set start value to supplied lower bound
       i  <- 1 
@@ -463,15 +438,15 @@ for (se_true in c(0.05, 0.1, 0.15)){
       
       f <- function(x) abs(se_true -sd(replicate(15000,cs_in_l(x,p,c))))
       # Check the upper and lower bounds to see if approximations result in 0
-      d1 <- abs(se_true -sd(replicate(15000,cs_in_l(n1,p,c))))
-      d2 <- abs(se_true -sd(replicate(15000,cs_in_l(n2,p,c))))
+      d1 <- abs(se_true -sd(replicate(15000,cs_in_l(n1,p_true,mu_true,sigma_true))))
+      d2 <- abs(se_true -sd(replicate(15000,cs_in_l(n2,p_true,mu_true,sigma_true))))
       
       d <- 1
       i <- 1
-      while (i < 100 && d > 0.001) {
+      while (i < 50 && d > 0.0001) {
         if (d1 > d2) {
           n1   <- ceiling((n1+n2)/2)
-          se1  <- sd(replicate(15000,cs_in_l(n1,p,c)))
+          se1  <- sd(replicate(15000,cs_in_l(n1,p_true,mu_true,sigma_true)))
           d1    <- abs(se_true -se1)
           d     <- d1
           events_req      <- n1
@@ -479,7 +454,7 @@ for (se_true in c(0.05, 0.1, 0.15)){
         }
         else{
           n2   <- ceiling((n1+n2)/2)
-          se2  <- sd(replicate(15000,cs_in_l(n2,p,c)))
+          se2  <- sd(replicate(15000,cs_in_l(n2,p_true,mu_true,sigma_true)))
           d2   <- abs(se_true -se2) 
           d    <- d2
           events_req    <- n2
@@ -491,13 +466,17 @@ for (se_true in c(0.05, 0.1, 0.15)){
         se_emp
       }
       
-      a_sum <- c(p,c,se_true, events_req, events_req_app,events_req_app_mc,events_req_app/events_req,events_req_app_mc/events_req ,se_emp)
+      a_sum <- c(p_true,c_true,se_true, events_req, events_req_app,events_req_app_mc,events_req_app/events_req,events_req_app_mc/events_req ,se_emp)
       
       req_event_csl<-data.frame(rbind(req_event_csl, a_sum))
       print(c)
     }}}
 
-colnames(req_event_csl) <- c("p","c","se_true", "events_req", "events_req_app", "events_req_app_mc", "events_req_app/events_req",  "events_req_app_mc/events_req", "se_emp_cs", "se_app")
+colnames(req_event_csl) <- c("p","c","se_true", "events_req", "events_req_app", "events_req_app_mc", "events_req_app/events_req",  "events_req_app_mc/events_req", "se_emp_cs")
+
+
+data.frame(rbind(req_event_c[,1:6],req_event_cs[,3:8],req_event_csl[,3:8]))
+
 
 #########################################################################################################################################################################################
 ########################################################Power and type 1 error###########################################################################################################
