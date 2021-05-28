@@ -2,7 +2,7 @@
 
 The code for the simulations in the paper "Estimation of required sample size for external validation of risk models for binary outcomes" can be found above.
 
-There is also package available. Details are given below.
+There is also a package available. Details are given below.
 
 
 <!-- README.md is generated from README.Rmd. Please edit that file -->
