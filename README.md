@@ -1,16 +1,10 @@
-Simulation code for the paper "Estimation of required sample size for external validation of risk models for binary outcomes"
+#Simulation code for the paper "Estimation of required sample size for external validation of risk models for binary outcomes"
 
----
-output:
-  pdf_document: default
-  word_document: default
-  html_document:
-    df_print: paged
----
+
 
 <!-- README.md is generated from README.Rmd. Please edit that file -->
 
-# sampsizeval
+# sampsizeval: An R package to calculate the sample size for validation of risk models for binary outcomes
 
 <!-- badges: start -->
 [![Travis build status](https://travis-ci.com/mpavlou/sampsizeval.svg?branch=master)](https://travis-ci.com/mpavlou/sampsizeval)
